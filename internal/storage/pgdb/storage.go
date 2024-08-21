@@ -79,11 +79,11 @@ func (o *OrdersStorage) OrderByID(ctx context.Context, id string) (string, error
 	}
 	//if we don't, look for order in db
 
-	var uid, json string
+	var order dto.Order
 
 	query := `SELECT order_uid, content FROM orders WHERE order_uid = $1`
 
-	if err := o.Pool.QueryRow(ctx, query, id).Scan(&uid, &json); err != nil {
+	if err := o.Pool.QueryRow(ctx, query, id).Scan(&order.UID, &order.Content); err != nil {
 		//if an error occurred
 		if errors.Is(err, pgx.ErrNoRows) {
 			return "", fmt.Errorf("%s: %w", op, strgerrs.ErrZeroRecordsFound)
@@ -91,16 +91,11 @@ func (o *OrdersStorage) OrderByID(ctx context.Context, id string) (string, error
 		return "", fmt.Errorf("%s: %w", op, err)
 	}
 
-	order := dto.Order{
-		UID:     uid,
-		Content: json,
-	}
-
 	//add to cache
 
 	o.cache.AddOrder(order)
 
-	return json, nil
+	return order.Content, nil
 }
 
 func (o *OrdersStorage) ConsumeOrders(ctx context.Context, orders <-chan dto.Order) {
