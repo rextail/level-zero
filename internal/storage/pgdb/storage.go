@@ -74,6 +74,7 @@ func (o *OrdersStorage) OrderByID(ctx context.Context, id string) (string, error
 
 	if content := o.cache.OrderByID(id); content != "" {
 		//if we found order in cache
+		log.Printf("%s: found order in cache", op)
 		return content, nil
 	}
 	//if we don't, look for order in db

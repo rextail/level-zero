@@ -23,8 +23,8 @@ func TestCache_AddOrder(t *testing.T) {
 			counter++
 		}
 		fmt.Println(cache.qLocator)
-		if cache.qLocator["0"] != 1 {
-			t.Errorf("got %d, expected 1", cache.qLocator["3"])
+		if cache.qLocator["0"] != outQ {
+			t.Errorf("got %d, expected %d", cache.qLocator["3"], outQ)
 		}
 		//Now we have to reach hot queue
 		order := dto.Order{
@@ -33,8 +33,8 @@ func TestCache_AddOrder(t *testing.T) {
 		}
 		cache.AddOrder(order)
 		fmt.Println(cache.qLocator)
-		if cache.qLocator["0"] != 2 {
-			t.Errorf("got %d, expected 2", cache.qLocator["0"])
+		if cache.qLocator["0"] != hotQ {
+			t.Errorf("got %d, expected %d", cache.qLocator["0"], hotQ)
 		}
 	})
 	t.Run("Pull odd element out from OutQueue", func(t *testing.T) {
@@ -58,5 +58,30 @@ func TestCache_AddOrder(t *testing.T) {
 			t.Errorf("got %d, unexpected", id)
 		}
 	})
+}
+func TestCache_OrderByID(t *testing.T) {
+	t.Run("Reading element from OutQ must move it to HotQ", func(t *testing.T) {
+		cache := New(4)
 
+		order1 := dto.Order{
+			UID:     "0",
+			Content: "",
+		}
+
+		cache.AddOrder(order1)
+
+		order2 := dto.Order{
+			UID:     "1",
+			Content: "",
+		}
+
+		cache.AddOrder(order2)
+
+		cache.AddOrder(order1)
+
+		if cache.qLocator["0"] != hotQ {
+			t.Errorf("got %d, expected %d", cache.qLocator["0"], hotQ)
+		}
+
+	})
 }
