@@ -1,0 +1,9 @@
+log:
+  level: "info"
+http:
+    address: "127.0.0.1:8080"
+nats:
+  stream_name: "zero-level"
+  subject_name: "orders.*"
+postgres:
+  max_pool_size: 20

@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  nats:
+    image: nats:latest
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+
+  postgres:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: rextail
+      POSTGRES_PASSWORD: s3cr7tp4ss
+      POSTGRES_DB: orders-info
+    ports:
+      - "5432:5432"
