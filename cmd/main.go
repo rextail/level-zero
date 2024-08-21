@@ -5,6 +5,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"level-zero/config"
 	"level-zero/internal/dto"
+	http_server "level-zero/internal/http-server"
 	"level-zero/internal/http-server/handlers/getorder"
 	"level-zero/internal/http-server/handlers/index"
 	"level-zero/internal/mq"
@@ -14,8 +15,10 @@ import (
 	"level-zero/pkg/postgres"
 	"log"
 	"net/http"
-	"time"
 )
+
+const noOrdersPath = `internal/http-server/front/no_orders.html`
+const ordersPath = `internal/http-server/front/order.html`
 
 func main() {
 	cfg := config.MustLoad("config/config.yml")
@@ -39,16 +42,14 @@ func main() {
 
 	stream, err := mq.NewStream(nats.Conn, cfg.Nats.StreamName, cfg.Nats.SubjectName)
 	if err != nil {
-		log.Fatalf("nats stream init failed %v", err)
+		log.Fatalf("nats stream init failed: %v", err)
 	}
 
 	msgs := make(chan []byte, 100)
 
 	streamCfg := mq.Config{
-		Token:        "orders.new",
-		RetryTimeout: 2 * time.Second,
-		MaxTimeout:   8 * time.Second,
-		MsgHandler:   mq.FetchToChannel,
+		Token:      "orders.new",
+		MsgHandler: mq.FetchToChannel,
 	}
 
 	stream.SubscribeChannel(ctx, streamCfg, msgs)
@@ -61,12 +62,20 @@ func main() {
 
 	router := chi.NewRouter()
 
+	responser := &http_server.OrderResponser{
+		ordersPath,
+		noOrdersPath,
+	}
+
 	router.Get("/", index.New("internal/http-server/front/index.html"))
-	router.Post("/submit", getorder.New(ctx, storage))
+
+	router.Post("/submit", getorder.New(ctx, storage, responser))
+
 	srv := http.Server{
 		Addr:    cfg.HTTP.Address,
 		Handler: router,
 	}
+
 	go func() {
 		log.Printf("Starting server on %s", cfg.HTTP.Address)
 		if err := srv.ListenAndServe(); err != nil {
@@ -75,5 +84,4 @@ func main() {
 	}()
 
 	<-ctx.Done()
-
 }

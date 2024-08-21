@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/nats-io/nats.go"
 	"log"
-	"time"
 )
 
 type Stream struct {
@@ -13,10 +12,8 @@ type Stream struct {
 }
 
 type Config struct {
-	Token        string
-	RetryTimeout time.Duration
-	MaxTimeout   time.Duration
-	MsgHandler   func(ctx context.Context, msgCh chan<- []byte) nats.MsgHandler
+	Token      string
+	MsgHandler func(ctx context.Context, msgCh chan<- []byte) nats.MsgHandler
 }
 
 func NewStream(conn *nats.Conn, streamName string, subjects string) (*Stream, error) {
@@ -45,23 +42,9 @@ func (s *Stream) SubscribeChannel(ctx context.Context, cfg Config, msgCh chan<- 
 	//func initialize subscription to nats jetstream server
 	//callback function MsgHandler sends messages to msgCh
 	const op = `mq.nats.ConsumeOrders`
-	for {
-		select {
-		case <-ctx.Done():
-			log.Printf("%s: Context was canceled, subscription was not initialized", op)
-			return
-		default:
-			_, err := s.Subscribe(cfg.Token, cfg.MsgHandler(ctx, msgCh))
-			if err != nil {
-				log.Printf("%s: Can't initialize subscription, retry after: %s", op, cfg.RetryTimeout.String())
-				time.Sleep(cfg.RetryTimeout)
-				if cfg.RetryTimeout*2 <= cfg.MaxTimeout {
-					cfg.RetryTimeout *= 2
-				}
-			} else {
-				log.Printf("%s: successfully subcribed to: %s", op, cfg.Token)
-				return
-			}
-		}
+	_, err := s.Subscribe(cfg.Token, cfg.MsgHandler(ctx, msgCh))
+	if err != nil {
+		log.Printf("%s: Can't initialize subscription, check server configuration, error %v", op, err)
+		return
 	}
 }

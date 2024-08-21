@@ -5,16 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/go-chi/render"
-	"html/template"
 	"level-zero/internal/models"
 	"level-zero/internal/storage/strgerrs"
 	resp "level-zero/pkg/api/response"
 	"log"
 	"net/http"
 )
-
-const noOrdersPath = `internal/http-server/front/no_orders.html`
-const ordersPath = `internal/http-server/front/order.html`
 
 type Request struct {
 	UID string `json:"id"`
@@ -23,10 +19,6 @@ type Request struct {
 type Response struct {
 	resp.Response
 	order string
-}
-
-func loadTemplate(path string) *template.Template {
-	return template.Must(template.ParseFiles(path))
 }
 
 func renderError(w http.ResponseWriter, r *http.Request, message string) {
@@ -38,7 +30,11 @@ type OrderGetter interface {
 	OrderByID(ctx context.Context, ID string) (string, error)
 }
 
-func New(ctx context.Context, orderGetter OrderGetter) http.HandlerFunc {
+type OrderResponser interface {
+	OrderResponse(w http.ResponseWriter, order *models.Order) error
+}
+
+func New(ctx context.Context, orderGetter OrderGetter, orderResponser OrderResponser) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		const op = `http-server.getorder.New`
 
@@ -51,8 +47,6 @@ func New(ctx context.Context, orderGetter OrderGetter) http.HandlerFunc {
 			return
 		}
 
-		w.Header().Set("Content-Type", "text/html")
-
 		order, err := orderGetter.OrderByID(ctx, req.UID)
 
 		var Order models.Order
@@ -63,9 +57,8 @@ func New(ctx context.Context, orderGetter OrderGetter) http.HandlerFunc {
 			if errors.Is(err, strgerrs.ErrZeroRecordsFound) {
 				log.Printf("%s: found no orders for requested id %s", op, req.UID)
 
-				res := loadTemplate(noOrdersPath)
+				if err = orderResponser.OrderResponse(w, &Order); err != nil {
 
-				if err = res.Execute(w, nil); err != nil {
 					log.Printf("%s: failed to execute no orders html", op)
 
 					renderError(w, r, "server failed to form response")
@@ -82,9 +75,7 @@ func New(ctx context.Context, orderGetter OrderGetter) http.HandlerFunc {
 			return
 		}
 
-		res := loadTemplate(ordersPath)
-
-		if err = res.Execute(w, Order); err != nil {
+		if err = orderResponser.OrderResponse(w, nil); err != nil {
 			log.Printf("%s: failed to execute <orders.html>%v %v", op, order, err)
 
 			renderError(w, r, "server failed to form response")
